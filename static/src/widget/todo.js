@@ -3,44 +3,85 @@ odoo.define('todoapp_owl.home', function (require) {
 
     var AbstractAction = require('web.AbstractAction');
     var core = require('web.core');
-    const { ComponentWrapper, WidgetAdapterMixin } = require('web.OwlCompatibility');
+    var rpc = require('web.rpc');
+
+    const {ComponentWrapper, WidgetAdapterMixin} = require('web.OwlCompatibility');
 
     const {Component, Store, mount} = owl;
     const {xml} = owl.tags;
     const {whenReady} = owl.utils;
 
-    class AppWrapper extends ComponentWrapper {}
+    class AppWrapper extends ComponentWrapper {
+    }
 
     const components = {
         App: require('todoapp_owl/static/src/components/app/app.js'),
     };
 
+    async function fetch_task_list() {
+        const tasks_list = rpc.query({
+            model: 'todo.task',
+            method: 'get_tasks_list',
+            args: [],
+        });
+        return tasks_list
+    }
+
+    async function create_task(vals) {
+        return rpc.query({
+            model: 'todo.task',
+            method: 'create',
+            args: [vals],
+        });
+    }
+
+    async function update_task(task_id, vals) {
+        return rpc.query({
+            model: 'todo.task',
+            method: 'write',
+            args: [[task_id], vals],
+        });
+    }
+
+    async function unlink_task(task_id) {
+        return rpc.query({
+            model: 'todo.task',
+            method: 'unlink',
+            args: [[task_id]],
+        });
+    }
+
     const actions = {
-        addTask({state}, title) {
+        async addTask({state}, title) {
             title = title.trim();
             if (title) {
+                const new_task_id = await create_task({
+                    'name': title,
+                    'is_completed': false,
+                })
                 const task = {
-                    id: state.nextId++,
+                    id: new_task_id,
                     title: title,
                     isCompleted: false,
                 };
                 state.tasks.push(task);
+                state.nextId = new_task_id + 1;
             }
         },
-        toggleTask({state}, id) {
+        async toggleTask({state}, id) {
             const task = state.tasks.find((t) => t.id === id);
+            await update_task(task.id, {'is_completed': !task.isCompleted, 'name': task.title});
             task.isCompleted = !task.isCompleted;
         },
-        deleteTask({state}, id) {
+        async deleteTask({state}, id) {
             const index = state.tasks.findIndex((t) => t.id === id);
-            state.tasks.splice(index, 1);
+            const res = await unlink_task(id);
+            if (res) {
+                state.tasks.splice(index, 1);
+            }
         },
     };
 
-    const initialState = {
-        nextId: 1,
-        tasks: [],
-    };
 
     var TodoAppHome = AbstractAction.extend(WidgetAdapterMixin, {
         template: 'todoapp_owl.home',
@@ -52,6 +93,7 @@ odoo.define('todoapp_owl.home', function (require) {
             console.log('init');
             this._super(...arguments);
             this.component = undefined;
+            this.env = undefined;
         },
         /**
          * @override
@@ -61,23 +103,30 @@ odoo.define('todoapp_owl.home', function (require) {
 
             console.log('start');
             await this._super(...arguments);
-            
+
             this.component = new AppWrapper(
                 this,
                 components.App,
                 {}
             );
 
-            const store = new Store({
-                env: this.component.env,
+            this.env = this.component.env;
+
+            const tasks = await fetch_task_list();
+
+            const initialState = {
+                nextId: tasks.length + 1,
+                tasks: tasks,
+            };
+
+            this.component.env.store = new Store({
+                env: this.env,
                 actions,
                 state: initialState,
             });
-            this.component.env.store = store;
-            
+
             await this.component.mount(this.el);
         },
-
     });
 
     core.action_registry.add('todoapp_owl.home', TodoAppHome);
