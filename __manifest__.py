@@ -22,8 +22,9 @@
 
     # always loaded
     'data': [
-        # 'security/ir.model.access.csv',
+        'security/ir.model.access.csv',
         'views/views.xml',
+        'views/task.xml',
         'views/templates.xml',
     ],
     # only loaded in demonstration mode
@@ -35,4 +36,5 @@
         "static/src/components/task/task.xml",
         "static/src/xml/home.xml",
     ],
+    'application': True,
 }

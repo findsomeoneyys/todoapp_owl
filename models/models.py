@@ -1,18 +1,12 @@
 # -*- coding: utf-8 -*-
 
-# from odoo import models, fields, api
+from odoo import models, fields, api
 
 
-# class todoapp-owl(models.Model):
-#     _name = 'todoapp-owl.todoapp-owl'
-#     _description = 'todoapp-owl.todoapp-owl'
+class TodoTask(models.Model):
+    _name = 'todo.task'
+    _description = 'Todo APP tasks'
 
-#     name = fields.Char()
-#     value = fields.Integer()
-#     value2 = fields.Float(compute="_value_pc", store=True)
-#     description = fields.Text()
-#
-#     @api.depends('value')
-#     def _value_pc(self):
-#         for record in self:
-#             record.value2 = float(record.value) / 100
+    name = fields.Char(required=True)
+    is_completed = fields.Boolean()
+    description = fields.Text()
